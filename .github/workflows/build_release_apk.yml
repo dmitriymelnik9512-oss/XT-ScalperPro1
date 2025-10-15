@@ -1,4 +1,4 @@
-name: Build XT-ScalperPro Release APK
+name: Build XT-ScalperPro APK
 
 on:
   push:
@@ -11,56 +11,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y           python3-pip python3-setuptools python3-wheel           openjdk-11-jdk zlib1g-dev           autoconf automake libtool libtool-bin libltdl-dev m4 gperf           pkg-config libffi-dev libssl-dev git unzip wget zip           build-essential
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Clean previous Buildozer cache
-      run: rm -rf ~/.buildozer/android/platform
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ccache \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            python3-pip \
+            python3-setuptools \
+            zlib1g-dev \
+            libstdc++6 \
+            libffi-dev \
+            libssl-dev
 
-    - name: Cache Android & Buildozer
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.buildozer
-          ~/.local/share/python-for-android
-          ~/.android
-          /home/runner/.buildozer/android/platform
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-        restore-keys: |
-          ${{ runner.os }}-buildozer-
+      - name: Upgrade pip and install Buildozer
+        run: |
+          pip install --upgrade pip wheel Cython virtualenv
+          pip install buildozer==1.5.0
 
-    - name: Install Python tools
-      run: |
-        python3 -m pip install --upgrade pip
-        pip install --upgrade Cython virtualenv buildozer
+      - name: Install Android SDK Tools + Accept licenses
+        run: |
+          mkdir -p ~/.android && touch ~/.android/repositories.cfg
+          yes | sdkmanager --licenses || true
+          sdkmanager --update
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;36.1.0" || true
+          yes | sdkmanager --licenses
 
-    - name: Prepare environment
-      run: |
-        mkdir -p ~/.buildozer
-        export PATH=$PATH:~/.local/bin
+      - name: Ensure buildozer.spec and bin folder exist
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            echo "⚙️ buildozer.spec не знайдено — створюю стандартний файл..."
+            buildozer init
+          fi
+          mkdir -p bin
 
-    - name: Setup Keystore
-      run: |
-        echo ${{ secrets.KEYSTORE_BASE64 }} | base64 --decode > myrelease.keystore
-      env:
-        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Build APK
+        run: |
+          echo "🚀 Починаю збірку APK..."
+          buildozer android debug --verbose || exit 1
 
-    - name: Build APK (release)
-      run: |
-        buildozer android release
-      env:
-        USE_SDK_WRAPPER: "1"
-        KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: XT-ScalperPro-Release-APK
-        path: bin/*.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XT-ScalperPro-APK
+          path: bin/*.apk

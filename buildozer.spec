@@ -1,0 +1,19 @@
+[app]
+title = XT-ScalperPro
+package.name = xtscalper
+package.domain = org.xt.scalper
+source.dir = .
+source.main = main.py
+source.include_exts = py,png,jpg,kv,json,txt
+version = 1.0.0
+requirements = python3,kivy==2.2.1,ccxt,pandas,numpy,pandas_ta,cython
+android.api = 33
+android.minapi = 28
+android.ndk_api = 28
+android.ndk = 27b
+android.bootstrap = sdl2
+android.copy_libs = 1
+android.use_sdk_wrapper = 1
+orientation = portrait
+fullscreen = 1
+log_level = 2

@@ -1,0 +1,66 @@
+name: Build XT-ScalperPro Release APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y           python3-pip python3-setuptools python3-wheel           openjdk-11-jdk zlib1g-dev           autoconf automake libtool libtool-bin libltdl-dev m4 gperf           pkg-config libffi-dev libssl-dev git unzip wget zip           build-essential
+
+    - name: Clean previous Buildozer cache
+      run: rm -rf ~/.buildozer/android/platform
+
+    - name: Cache Android & Buildozer
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.buildozer
+          ~/.local/share/python-for-android
+          ~/.android
+          /home/runner/.buildozer/android/platform
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
+
+    - name: Install Python tools
+      run: |
+        python3 -m pip install --upgrade pip
+        pip install --upgrade Cython virtualenv buildozer
+
+    - name: Prepare environment
+      run: |
+        mkdir -p ~/.buildozer
+        export PATH=$PATH:~/.local/bin
+
+    - name: Setup Keystore
+      run: |
+        echo ${{ secrets.KEYSTORE_BASE64 }} | base64 --decode > myrelease.keystore
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+    - name: Build APK (release)
+      run: |
+        buildozer android release
+      env:
+        USE_SDK_WRAPPER: "1"
+        KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: XT-ScalperPro-Release-APK
+        path: bin/*.apk
